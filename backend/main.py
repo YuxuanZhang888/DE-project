@@ -3,25 +3,29 @@ from pydantic import BaseModel
 import httpx
 import config
 
-import rag
+
+import search
 
 app = FastAPI()
+
 
 class ChatRequest(BaseModel):
     message: str
     model: str = config.DEFAULT_MODEL
     max_tokens: int = config.DEFAULT_MAX_TOKENS
 
+
 class RAGChatRequest(BaseModel):
     message: str
     model: str = config.DEFAULT_MODEL
     max_tokens: int = config.DEFAULT_MAX_TOKENS
-    top_k: int = 3
+    top_k: int = 3 
+
 
 @app.get("/")
 def read_root():
-    return {"message": "RAG Q&A System (TXT/PDF/Excel)", 
-            "note": f"Place documents in {config.KNOWLEDGE_BASE_PATH}, restart service to use"}
+    return {"message": "RAG（support TXT/PDF/Excel）"
+           }
 
 @app.post("/api/chat")
 async def chat_with_gpt(request: ChatRequest):
@@ -53,17 +57,14 @@ async def chat_with_gpt(request: ChatRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.on_event("startup")
-def startup_event():
-    rag.init_knowledge_base()
 
 @app.post("/api/rag/chat")
 async def rag_chat(request: RAGChatRequest):
     try:
-        context = rag.search_knowledge(request.message, top_k=request.top_k)
         
-        system_prompt = f"""
-        Answer user questions based on the following context. If the context has no relevant information, say "Cannot answer based on knowledge base".
+        context = search.search_similar_docs(request.message, top_k=request.top_k)
+       
+        system_prompt = f"""Please answer the user question based on the following context. If the context does not provide relevant information, please provide a brief answer.
         Context:
         {context}
         """
